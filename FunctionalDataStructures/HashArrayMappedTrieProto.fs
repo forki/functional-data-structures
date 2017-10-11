@@ -1,8 +1,8 @@
 ﻿namespace Collections
 
-module Array =
+module private Array =
 
-    let inline blit source sourceStart targetStart count target =
+    let inline private blit source sourceStart targetStart count target =
         if count > 0 then
             Array.blit source sourceStart target targetStart count
             target
