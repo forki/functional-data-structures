@@ -1,6 +1,11 @@
-﻿namespace CollectionsA
+﻿namespace rec CollectionsA
 
 open BitwiseUnitsOfMeasure
+open System.Collections.Generic
+
+module IEnumerable =
+    
+    let iEnumerator (enumerable: IEnumerable<'T>) = enumerable.GetEnumerator ()
 
 [<Struct>]
 type Bitmap = Bitmap of uint64 with
@@ -91,8 +96,6 @@ module Entry =
 
     let inline value (Entry (_, v)) = v
 
-open Entry
-
 module private CollisionHelpers =
     open Prefix
     open Entry
@@ -173,6 +176,19 @@ module private Node =
             else
                 Branch (Bitmap.setBit bitIndex bitmap, ArrayHelpers.insert (Leaf entry) arrayIndex children), AddOutcome.Added
 
+    let rec containsKey targetKey targetHash prefix = function
+        | Leaf (Entry (key, _)) when key = targetKey -> true
+        | Leaf _ -> false
+        | LeafWithCollisions entries when collisionHash entries = targetHash ->
+            List.exists (fun (Entry (key, _)) -> key = targetKey) entries
+        | LeafWithCollisions _ -> false
+        | Branch (bitmap, children) ->
+            let bitIndex = childBitIndex prefix
+            if containsChild bitIndex bitmap then
+                containsKey targetKey targetHash (nextLayerPrefix prefix) children.[childArrayIndex bitIndex bitmap]
+            else
+                false
+
     let rec tryFind targetKey targetHash prefix node =
         match node with
         | Leaf (Entry (key, value)) when key = targetKey ->
@@ -214,17 +230,40 @@ module private Node =
                     else
                         Removed (Branch (newBitmap, ArrayHelpers.remove childArrayIndex children))
             else
-                NotFound             
+                NotFound
 
-type Hamt<'K, 'V> = 
+    let rec toSeq = function
+        | Leaf entry -> Seq.singleton entry
+        | LeafWithCollisions entries -> upcast entries
+        | Branch (_, children) -> Seq.collect toSeq children
+
+type Hamt<'K, 'V> when 'K: equality = 
     private
     | Empty 
     | Trie of root: Node<'K, 'V> * count: int
 
+    interface IEnumerable<Entry<'K, 'V>> with
+        member this.GetEnumerator() = 
+            ((Hamt.toSeq this) :> IEnumerable<Entry<'K, 'V>>).GetEnumerator ()
+
+    interface System.Collections.IEnumerable with
+        member this.GetEnumerator(): System.Collections.IEnumerator = 
+            upcast (Hamt.toSeq this).GetEnumerator ()
+
+    //interface IReadOnlyDictionary<'K, 'V> with
+    //    member this.ContainsKey key = Hamt.containsKey key this
+    //    member this.Count = Hamt.count this
+    //    member this.GetEnumerator() = raise (System.NotImplementedException())
+    //    member this.Item
+    //        with get (key) = raise (System.NotImplementedException())
+    //    member this.Keys = raise (System.NotImplementedException())
+    //    member this.TryGetValue(key, value) = raise (System.NotImplementedException())
+    //    member this.Values = raise (System.NotImplementedException())
+
 module Hamt =
     open Prefix
 
-    let empty: Hamt<'K, 'V> = Empty
+    let empty: Hamt<'K, 'V> = Empty;
 
     let count = function
         | Empty -> 0
@@ -238,6 +277,12 @@ module Hamt =
             | newRoot, AddOutcome.Added -> Trie (newRoot, count + 1)
             | newRoot, AddOutcome.Replaced -> Trie (newRoot, count)
 
+    let containsKey key = function
+        | Empty -> false
+        | Trie (root, _) ->
+            let hash = hash key
+            Node.containsKey key hash (fullPrefixFromHash hash) root
+
     let tryFind key = function
         | Empty -> None
         | Trie (root, _) ->
@@ -247,5 +292,19 @@ module Hamt =
     let find key hamt =
         match tryFind key hamt with
         | Some value -> value
-        | None -> failwith "Improve this exception"
+        | None -> failwith "Improve this exception";
 
+    let remove key hamt =
+        match hamt with
+        | Empty -> Empty
+        | Trie (root, count) ->
+            let hash = hash key
+            match Node.remove key hash (fullPrefixFromHash hash) root with
+            | NotFound -> hamt
+            | Removed node -> Trie (node, count - 1)
+            | NothingLeft -> Empty
+
+    let toSeq hamt =
+        match hamt with
+        | Empty -> Seq.empty
+        | Trie (root, _) -> Node.toSeq root
