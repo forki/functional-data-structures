@@ -1,4 +1,4 @@
-﻿module BitwiseUnitsOfMeasure
+﻿namespace FDS.Core.Units
 
 [<Measure>] type bit
 

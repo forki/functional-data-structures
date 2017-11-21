@@ -1,20 +1,12 @@
 ﻿namespace rec CollectionsA
 
-open BitwiseUnitsOfMeasure
 open System.Collections.Generic
+open FDS.Core
+open FDS.Core.Units
 
 module IEnumerable =
     
     let iEnumerator (enumerable: IEnumerable<'T>) = enumerable.GetEnumerator ()
-
-[<Struct>]
-type Bitmap = Bitmap of uint64 with
-    static member inline (-) (Bitmap minuend, Bitmap subtrahend) = Bitmap (minuend - subtrahend)
-    static member inline (<<<) ((Bitmap value), offset) = Bitmap (value <<< offset)
-    static member inline (>>>) ((Bitmap value), offset) = Bitmap (value >>> offset)
-    static member inline (&&&) (Bitmap left, Bitmap right) = Bitmap (left &&& right)
-    static member inline (|||) (Bitmap left, Bitmap right) = Bitmap (left ||| right)
-    static member inline (~~~) (Bitmap single) = Bitmap (~~~ single)
 
 [<Struct>]
 type Entry<'K, 'T> = Entry of key:'K * value:'T
@@ -36,24 +28,12 @@ type private RemoveOutcome<'K, 'T> =
     | Removed of Node<'K, 'T>
     | NotFound
 
-module ArithmeticHelpers =
-
-    let countBitsOn32 value =
-        let a = value - ((rshift value 1<bit>) &&& 0x55555555u)
-        let b = (a &&& 0x33333333u) + ((rshift a 2<bit>) &&& 0x33333333u)
-        asBits (rshift (((b + (rshift b 4<bit>)) &&& 0x0F0F0F0Fu) * 0x01010101u) 24<bit>)
-
-    let countBitsOn64 value =
-        let low = value |> uint32 |> countBitsOn32
-        let high = rshift value 32<bit> |> uint32 |> countBitsOn32
-        low + high
-
 module private Prefix =
 
     [<Literal>]
     let HashSize = 32<bit>
 
-    let inline hash key = key |> hash |> uint32
+    let inline uhash key = key |> hash |> uint32
 
     let inline currentLevelPrefixFromHash currentLength hash = Prefix (rshift hash (HashSize - currentLength), currentLength)
 
@@ -62,33 +42,6 @@ module private Prefix =
     let inline prefixBits (Prefix (bits, _)) = bits
 
     let inline length (Prefix (_, length)) = length
-
-module Bitmap =
-
-    let inline ofValue value = uint64 value |> Bitmap
-
-    let NoneSet: Bitmap = Bitmap 0UL
-
-    let FirstSet: Bitmap = Bitmap 1UL
-
-    let AllSet: Bitmap = Bitmap 0xFFFF_FFFF_FFFF_FFFFUL
-
-    [<Literal>]
-    let LayerBitCount = 6<bit>
-
-    let PrefixLayerMask = 0x3Fu
-
-    let inline countBitsOn (Bitmap bitmap) = ArithmeticHelpers.countBitsOn64 bitmap
-
-    let inline bit index = lshift FirstSet index
-
-    let inline isBitOn index bitmap = bit index &&& bitmap <> NoneSet
-
-    let inline onlyLowerBits index bitmap = (bit index - FirstSet) &&& bitmap
-
-    let inline setBit index bitmap = bitmap ||| (bit index)
-
-    let inline clearBit index bitmap = bitmap &&& ~~~(bit index)
 
 module Entry =
 
@@ -100,7 +53,7 @@ module private CollisionHelpers =
     open Prefix
     open Entry
 
-    let collisionHash entries = entries |> List.head |> key |> hash
+    let collisionHash entries = entries |> List.head |> key |> uhash
     
     let insertOrReplace entry entries =
         entries
@@ -126,6 +79,7 @@ module private Node =
     open Entry
     open CollisionHelpers
     open Bitmap
+    open FDS.Core.Collections
 
     let emptyBranch: Node<'K, 'T> = Branch (NoneSet, Array.empty)
 
@@ -148,7 +102,7 @@ module private Node =
         | Leaf oldEntry when key entry = key oldEntry ->
             Leaf entry, AddOutcome.Replaced
         | Leaf oldEntry ->
-            let oldHash = oldEntry |> key |> hash
+            let oldHash = oldEntry |> key |> uhash
             if entryHash = oldHash then
                 LeafWithCollisions [ entry; oldEntry ], AddOutcome.Added
             else
@@ -172,9 +126,9 @@ module private Node =
             let arrayIndex = childArrayIndex bitIndex bitmap
             if containsChild bitIndex bitmap then
                 let (newChild, outcome) = add entry entryHash (nextLayerPrefix prefix) children.[arrayIndex]
-                Branch (bitmap, ArrayHelpers.put newChild arrayIndex children), outcome
+                Branch (bitmap, Array.put newChild arrayIndex children), outcome
             else
-                Branch (Bitmap.setBit bitIndex bitmap, ArrayHelpers.insert (Leaf entry) arrayIndex children), AddOutcome.Added
+                Branch (Bitmap.setBit bitIndex bitmap, Array.insert (Leaf entry) arrayIndex children), AddOutcome.Added
 
     let rec containsKey targetKey targetHash prefix = function
         | Leaf (Entry (key, _)) when key = targetKey -> true
@@ -220,7 +174,7 @@ module private Node =
                 let childArrayIndex = childArrayIndex bitIndex bitmap
                 match remove targetKey targetHash (nextLayerPrefix prefix) (Array.item childArrayIndex children) with
                 | NotFound -> NotFound
-                | Removed child -> Removed (Branch (bitmap, ArrayHelpers.put child childArrayIndex children))
+                | Removed child -> Removed (Branch (bitmap, Array.put child childArrayIndex children))
                 | NothingLeft ->
                     let newBitmap = clearBit bitIndex bitmap
                     if Array.isEmpty children
@@ -228,7 +182,7 @@ module private Node =
                     elif Array.length children = 1 
                         then Removed (Array.head children)
                     else
-                        Removed (Branch (newBitmap, ArrayHelpers.remove childArrayIndex children))
+                        Removed (Branch (newBitmap, Array.remove childArrayIndex children))
             else
                 NotFound
 
@@ -236,6 +190,11 @@ module private Node =
         | Leaf entry -> Seq.singleton entry
         | LeafWithCollisions entries -> upcast entries
         | Branch (_, children) -> Seq.collect toSeq children
+
+    let rec keys = function
+        | Leaf entry -> Seq.singleton (key entry)
+        | LeafWithCollisions entries -> Seq.map key entries
+        | Branch (_, children) -> Seq.collect keys children
 
 type Hamt<'K, 'V> when 'K: equality = 
     private
@@ -272,7 +231,7 @@ module Hamt =
     let add key value = function
         | Empty -> Trie (Leaf (Entry (key, value)), 1)
         | Trie (root, count) -> 
-            let hash = hash key
+            let hash = uhash key
             match Node.add (Entry (key, value)) hash (fullPrefixFromHash hash) root with
             | newRoot, AddOutcome.Added -> Trie (newRoot, count + 1)
             | newRoot, AddOutcome.Replaced -> Trie (newRoot, count)
@@ -280,13 +239,13 @@ module Hamt =
     let containsKey key = function
         | Empty -> false
         | Trie (root, _) ->
-            let hash = hash key
+            let hash = uhash key;
             Node.containsKey key hash (fullPrefixFromHash hash) root
 
     let tryFind key = function
         | Empty -> None
         | Trie (root, _) ->
-            let hash = hash key
+            let hash = uhash key
             Node.tryFind key hash (fullPrefixFromHash hash) root
 
     let find key hamt =
@@ -298,7 +257,7 @@ module Hamt =
         match hamt with
         | Empty -> Empty
         | Trie (root, count) ->
-            let hash = hash key
+            let hash = uhash key
             match Node.remove key hash (fullPrefixFromHash hash) root with
             | NotFound -> hamt
             | Removed node -> Trie (node, count - 1)
@@ -308,3 +267,13 @@ module Hamt =
         match hamt with
         | Empty -> Seq.empty
         | Trie (root, _) -> Node.toSeq root
+
+    let keys hamt =
+        match hamt with
+        | Empty -> Seq.empty
+        | Trie (root, _) -> Node.keys root
+
+    let isEmpty hamt =
+        match hamt with
+        | Empty -> true
+        | _ -> false
