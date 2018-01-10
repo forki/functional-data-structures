@@ -4,10 +4,6 @@ open System.Collections.Generic
 open FDS.Core
 open FDS.Core.Units
 
-module IEnumerable =
-    
-    let iEnumerator (enumerable: IEnumerable<'T>) = enumerable.GetEnumerator ()
-
 [<Struct>]
 type Entry<'K, 'T> = Entry of key:'K * value:'T
 
@@ -19,7 +15,7 @@ type private Node<'K, 'T> =
 [<Struct>]
 type private Prefix = Prefix of bits: uint32 * length: int<bit>
 
-type private AddOutcome = 
+type private AddOutcome =
     | Added
     | Replaced
 
@@ -54,7 +50,7 @@ module private CollisionHelpers =
     open Entry
 
     let collisionHash entries = entries |> List.head |> key |> uhash
-    
+
     let insertOrReplace entry entries =
         entries
         |> List.tryFindIndex (fun e -> key e = key entry)
@@ -111,7 +107,7 @@ module private Node =
                 |> add oldEntry oldHash oldPrefix
                 |> fst
                 |> add entry entryHash prefix
-        | LeafWithCollisions entries -> 
+        | LeafWithCollisions entries ->
             let collisionHash = collisionHash entries
             if entryHash = collisionHash then
                 let (newEntries, outcome) = insertOrReplace entry entries
@@ -179,7 +175,7 @@ module private Node =
                     let newBitmap = clearBit bitIndex bitmap
                     if Array.isEmpty children
                         then NothingLeft
-                    elif Array.length children = 1 
+                    elif Array.length children = 1
                         then Removed (Array.head children)
                     else
                         Removed (Branch (newBitmap, Array.remove childArrayIndex children))
@@ -196,17 +192,17 @@ module private Node =
         | LeafWithCollisions entries -> Seq.map key entries
         | Branch (_, children) -> Seq.collect keys children
 
-type Hamt<'K, 'V> when 'K: equality = 
+type Hamt<'K, 'V> when 'K: equality =
     private
-    | Empty 
+    | Empty
     | Trie of root: Node<'K, 'V> * count: int
 
     interface IEnumerable<Entry<'K, 'V>> with
-        member this.GetEnumerator() = 
+        member this.GetEnumerator() =
             ((Hamt.toSeq this) :> IEnumerable<Entry<'K, 'V>>).GetEnumerator ()
 
     interface System.Collections.IEnumerable with
-        member this.GetEnumerator(): System.Collections.IEnumerator = 
+        member this.GetEnumerator(): System.Collections.IEnumerator =
             upcast (Hamt.toSeq this).GetEnumerator ()
 
     //interface IReadOnlyDictionary<'K, 'V> with
@@ -230,7 +226,7 @@ module Hamt =
 
     let add key value = function
         | Empty -> Trie (Leaf (Entry (key, value)), 1)
-        | Trie (root, count) -> 
+        | Trie (root, count) ->
             let hash = uhash key
             match Node.add (Entry (key, value)) hash (fullPrefixFromHash hash) root with
             | newRoot, AddOutcome.Added -> Trie (newRoot, count + 1)

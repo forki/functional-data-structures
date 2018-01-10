@@ -56,6 +56,7 @@
   <ItemGroup>
     <Compile Include="AssemblyInfo.fs" />
     <Compile Include="ArrayHelpers.fs" />
+    <Compile Include="CollectionsUtils.fs" />
     <Compile Include="Bit.fs" />
     <Compile Include="ArithmeticHelpers.fs" />
     <Compile Include="Bitmap.fs" />
