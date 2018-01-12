@@ -1,21 +1,19 @@
-﻿namespace FunctionalDataStructures.AssemblyInfo
+﻿namespace TypeProviderLibrary.AssemblyInfo
 
 open System.Reflection
 open System.Runtime.CompilerServices
 open System.Runtime.InteropServices
-open System.Reflection
 open Microsoft.FSharp.Core.CompilerServices
-
 
 // General Information about an assembly is controlled through the following 
 // set of attributes. Change these attribute values to modify the information
 // associated with an assembly.
-[<assembly: AssemblyTitle("FunctionalDataStructures")>]
+[<assembly: AssemblyTitle("TypeProviderLibrary")>]
 [<assembly: AssemblyDescription("")>]
 [<assembly: AssemblyConfiguration("")>]
 [<assembly: AssemblyCompany("")>]
-[<assembly: AssemblyProduct("FunctionalDataStructures")>]
-[<assembly: AssemblyCopyright("Copyright ©  2017")>]
+[<assembly: AssemblyProduct("TypeProviderLibrary")>]
+[<assembly: AssemblyCopyright("Copyright ©  2018")>]
 [<assembly: AssemblyTrademark("")>]
 [<assembly: AssemblyCulture("")>]
 
@@ -25,7 +23,7 @@ open Microsoft.FSharp.Core.CompilerServices
 [<assembly: ComVisible(false)>]
 
 // The following GUID is for the ID of the typelib if this project is exposed to COM
-[<assembly: Guid("bd7fa5df-ccbf-4b1c-8971-f4b65d8d6ebd")>]
+[<assembly: Guid("95633721-b271-4623-ba87-29291eb21c7c")>]
 
 // Version information for an assembly consists of the following four values:
 // 
