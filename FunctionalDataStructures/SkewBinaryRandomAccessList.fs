@@ -122,6 +122,8 @@ module SkewList =
         | [] -> 
             None
 
+    let inline trySnoc list = tryUncons list
+
     let tryHead (SkewList (_, roots)) =
         match roots with
         | Root (_, Leaf x)::_ -> Some x
@@ -149,6 +151,8 @@ module SkewList =
         | Root (_, Leaf x)::tail -> x, SkewList (count - 1, tail)
         | Root (w, Branch (x, t1, t2))::rest -> x, SkewList (count - 1, Root (w / 2, t1)::Root (w / 2, t2)::rest)
         | [] -> failwith "Empty list"
+
+    let inline snoc list = uncons list
 
     let head (SkewList (_, roots)) =
         match roots with
@@ -202,7 +206,7 @@ module SkewVector =
 
     let inline count vector = SkewList.count vector
 
-    let tryUncon (SkewList (count, roots)) = 
+    let tryUnconj (SkewList (count, roots)) = 
         match roots with
         | Root (_, Leaf x)::tail -> 
             Some (SkewList (count - 1, tail), x)
@@ -210,6 +214,8 @@ module SkewVector =
             Some (SkewList (count - 1, Root (w / 2, t1)::Root (w / 2, t2)::rest), x)
         | [] -> 
             None
+
+    let inline tryJnoc vector = tryUnconj vector
 
     let tryLast (SkewList (_, roots)) =
         match roots with
@@ -228,11 +234,13 @@ module SkewVector =
     let inline tryUpdate index value (SkewList (count, _) as vector) = 
         SkewList.tryUpdate (count - index - 1) value vector
 
-    let uncons (SkewList (count, roots)) = 
+    let unconj (SkewList (count, roots)) = 
         match roots with
         | Root (_, Leaf x)::tail -> SkewList (count - 1, tail), x
         | Root (w, Branch (x, t1, t2))::rest -> SkewList (count - 1, Root (w / 2, t1)::Root (w / 2, t2)::rest), x
         | [] -> failwith "Empty list"
+
+    let inline jnoc vector = unconj vector
 
     let last (SkewList (_, roots)) =
         match roots with
