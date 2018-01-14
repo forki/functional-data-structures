@@ -8,7 +8,6 @@ type private Node<'T> =
 type private Root<'T> = Root of int * 'T Node
 
 module private Node =
-    open System.Security.Cryptography.X509Certificates
 
     let rec item index count = function
         | Leaf x when index = 0 -> x
@@ -18,6 +17,16 @@ module private Node =
             item (index - 1) (count / 2) left
         | Branch (_, _, right) ->
             item (index - 1 - count / 2) (count / 2) right
+    
+    let rec update value index count = function
+        | Leaf _ when index = 0 -> Leaf value
+        | Leaf _ -> failwith "Not enough elements"
+        | Branch (_, left, right) when index = 0 -> Branch (value, left, right)
+        | Branch (x, left, right) ->
+            if index <= count / 2 then
+                Branch (x, update value (index - 1) (count / 2) left, right)
+            else
+                Branch (x, left, update value (index - 1 - count /2) (count / 2) right)
 
     let rec tryItem index count = function
         | Leaf x when index = 0 -> Some x
@@ -51,6 +60,11 @@ module private Node =
 
 module private NodeList =
 
+    let rec private addAllFrom src dst =
+        match src with
+        | [] -> dst
+        | x::xs -> addAllFrom xs (x::dst)
+
     let cons x = function
         | Root (w1, t1)::Root (w2, t2)::rest when w1 = w2 -> Root (1 + w1 + w2, Branch (x, t1, t2))::rest
         | list -> Root (1, Leaf x)::list
@@ -60,17 +74,19 @@ module private NodeList =
         | Root (count, _)::rest -> item (index - count) rest
         | [] -> failwith "Not enough elements"
 
+    let rec update value index prev = function
+        | Root (count, node)::rest when index < count ->
+            Root (count, Node.update value index count node)::rest
+            |> addAllFrom prev
+        | (Root (count, _) as x)::rest -> update value (index - count) (x::prev) rest
+        | [] -> failwith "Not enough elements"
+
     let rec tryItem index = function
         | Root (count, node)::_ when index < count -> Node.tryItem index count node
         | Root (count, _)::rest -> tryItem (index - count) rest
         | [] -> None
 
-    let rec addAllFrom src dst =
-        match src with
-        | [] -> dst
-        | x::xs -> addAllFrom xs (x::dst)
-
-    let tryUpdate index value nodes binder =
+    let tryUpdate index value roots binder =
         let rec tryUpdate index prev = function
             | Root (count, node)::rest when index < count -> 
                 Node.tryUpdate index value count node (fun newNode -> 
@@ -79,10 +95,10 @@ module private NodeList =
                     |> binder)
             | (Root (count, _) as x)::rest -> tryUpdate (index - count) (x::prev) rest
             | [] -> None
-        tryUpdate index [] nodes
+        tryUpdate index [] roots
 
-    let rec toSeq nodes = 
-        match nodes with
+    let rec toSeq roots = 
+        match roots with
         | [] -> Seq.empty
         | Root (_, node)::rest -> seq { yield! Node.toSeq node; yield! toSeq rest }
         
@@ -93,12 +109,12 @@ module SkewList =
 
     let empty: SkewListVector<'T> = SkewList (0, [])
     
-    let cons x (SkewList (count, nodes)) = SkewList (count + 1, NodeList.cons x nodes)
+    let cons x (SkewList (count, roots)) = SkewList (count + 1, NodeList.cons x roots)
 
     let count (SkewList (count, _)) = count
 
-    let tryUncons (SkewList (count, nodes)) = 
-        match nodes with
+    let tryUncons (SkewList (count, roots)) = 
+        match roots with
         | Root (_, Leaf x)::tail -> 
             Some (x, SkewList (count - 1, tail))
         | Root (w, Branch (x, t1, t2))::rest -> 
@@ -106,21 +122,21 @@ module SkewList =
         | [] -> 
             None
 
-    let tryHead (SkewList (_, nodes)) =
-        match nodes with
+    let tryHead (SkewList (_, roots)) =
+        match roots with
         | Root (_, Leaf x)::_ -> Some x
         | Root (_, Branch (x, _, _))::_ -> Some x
         | [] -> None
 
-    let tryTail (SkewList (count, nodes)) =
-        match nodes with
+    let tryTail (SkewList (count, roots)) =
+        match roots with
         | Root (_, Leaf _)::tail -> Some (SkewList (count - 1, tail))
         | Root (w, Branch (_, t1, t2))::rest -> Some (SkewList (count - 1, (Root (w / 2, t1)::Root (w / 2, t2)::rest)))
         | [] -> None
 
-    let tryItem index (SkewList (count, nodes)) =
+    let tryItem index (SkewList (count, roots)) =
         if index >= 0 && index < count 
-            then NodeList.tryItem index nodes
+            then NodeList.tryItem index roots
             else None
 
     let tryUpdate index value (SkewList (count, roots)) =
@@ -128,30 +144,35 @@ module SkewList =
             then NodeList.tryUpdate index value roots (fun newRoots -> SkewList (count, newRoots) |> Option.Some)
             else None
 
-    let uncons (SkewList (count, nodes)) = 
-        match nodes with
+    let uncons (SkewList (count, roots)) = 
+        match roots with
         | Root (_, Leaf x)::tail -> x, SkewList (count - 1, tail)
         | Root (w, Branch (x, t1, t2))::rest -> x, SkewList (count - 1, Root (w / 2, t1)::Root (w / 2, t2)::rest)
         | [] -> failwith "Empty list"
 
-    let head (SkewList (_, nodes)) =
-        match nodes with
+    let head (SkewList (_, roots)) =
+        match roots with
         | Root (_, Leaf x)::_ -> x
         | Root (_, Branch (x, _, _))::_ -> x
         | [] -> failwith "Empty list"
 
-    let tail (SkewList (count, nodes)) =
-        match nodes with
+    let tail (SkewList (count, roots)) =
+        match roots with
         | Root (_, Leaf _)::tail -> SkewList (count - 1, tail)
         | Root (w, Branch (_, t1, t2))::rest -> SkewList (count - 1, (Root (w / 2, t1)::Root (w / 2, t2)::rest))
         | [] -> failwith "Empty list"
 
-    let item index (SkewList (count, nodes)) =
+    let item index (SkewList (count, roots)) =
         if index >= 0 && index < count 
-            then NodeList.item index nodes
+            then NodeList.item index roots
             else failwith "Index out of bounds"
 
-    let toSeq (SkewList (_, nodes)) = NodeList.toSeq nodes
+    let update index value (SkewList (count, roots)) =
+        if index >= 0 && index < count 
+            then SkewList (count, NodeList.update value index [] roots)
+            else failwith "Index out of bounds"
+
+    let toSeq (SkewList (_, roots)) = NodeList.toSeq roots
 
     let ofSeq items = Seq.fold (fun list item -> cons item list) empty items
 
@@ -168,8 +189,8 @@ module private NodeAsVector =
 
 module private NodeListAsVector =
 
-    let rec toSeq nodes = 
-        match nodes with
+    let rec toSeq roots = 
+        match roots with
         | [] -> Seq.empty
         | Root (_, node)::rest -> seq { yield! toSeq rest; yield! NodeAsVector.toSeq node }
 
@@ -181,8 +202,8 @@ module SkewVector =
 
     let inline count vector = SkewList.count vector
 
-    let tryUncon (SkewList (count, nodes)) = 
-        match nodes with
+    let tryUncon (SkewList (count, roots)) = 
+        match roots with
         | Root (_, Leaf x)::tail -> 
             Some (SkewList (count - 1, tail), x)
         | Root (w, Branch (x, t1, t2))::rest -> 
@@ -190,40 +211,46 @@ module SkewVector =
         | [] -> 
             None
 
-    let tryLast (SkewList (_, nodes)) =
-        match nodes with
+    let tryLast (SkewList (_, roots)) =
+        match roots with
         | Root (_, Leaf x)::_ -> Some x
         | Root (_, Branch (x, _, _))::_ -> Some x
         | [] -> None
 
-    let tryInitial (SkewList (count, nodes)) =
-        match nodes with
+    let tryInitial (SkewList (count, roots)) =
+        match roots with
         | Root (_, Leaf _)::tail -> Some (SkewList (count - 1, tail))
         | Root (w, Branch (_, t1, t2))::rest -> Some (SkewList (count - 1, (Root (w / 2, t1)::Root (w / 2, t2)::rest)))
         | [] -> None
 
     let inline tryItem index (SkewList (count, _) as vector) = SkewList.tryItem (count - index - 1) vector
 
-    let uncons (SkewList (count, nodes)) = 
-        match nodes with
+    let inline tryUpdate index value (SkewList (count, _) as vector) = 
+        SkewList.tryUpdate (count - index - 1) value vector
+
+    let uncons (SkewList (count, roots)) = 
+        match roots with
         | Root (_, Leaf x)::tail -> SkewList (count - 1, tail), x
         | Root (w, Branch (x, t1, t2))::rest -> SkewList (count - 1, Root (w / 2, t1)::Root (w / 2, t2)::rest), x
         | [] -> failwith "Empty list"
 
-    let last (SkewList (_, nodes)) =
-        match nodes with
+    let last (SkewList (_, roots)) =
+        match roots with
         | Root (_, Leaf x)::_ -> x
         | Root (_, Branch (x, _, _))::_ -> x
         | [] -> failwith "Empty list"
 
-    let initial (SkewList (count, nodes)) =
-        match nodes with
+    let initial (SkewList (count, roots)) =
+        match roots with
         | Root (_, Leaf _)::tail -> SkewList (count - 1, tail)
         | Root (w, Branch (_, t1, t2))::rest -> SkewList (count - 1, (Root (w / 2, t1)::Root (w / 2, t2)::rest))
         | [] -> failwith "Empty list"
 
     let inline item index (SkewList (count, _) as vector) = SkewList.item (count - index - 1) vector
 
-    let inline toSeq (SkewList (_, nodes)) = NodeListAsVector.toSeq nodes
+    let inline update index value (SkewList (count, _) as vector) = 
+        SkewList.update (count - index - 1) value vector
+
+    let inline toSeq (SkewList (_, roots)) = NodeListAsVector.toSeq roots
 
     let inline ofSeq items = SkewList.ofSeq items
