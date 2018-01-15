@@ -197,13 +197,11 @@ type Hamt<'K, 'V> when 'K: equality =
     | Empty
     | Trie of root: Node<'K, 'V> * count: int
 
-    interface IEnumerable<Entry<'K, 'V>> with
-        member this.GetEnumerator() =
-            ((Hamt.toSeq this) :> IEnumerable<Entry<'K, 'V>>).GetEnumerator ()
-
     interface System.Collections.IEnumerable with
-        member this.GetEnumerator(): System.Collections.IEnumerator =
-            upcast (Hamt.toSeq this).GetEnumerator ()
+        member this.GetEnumerator() = upcast (this |> Hamt.toSeq |> Enumerable.enumerator)
+
+    interface IEnumerable<Entry<'K, 'V>> with
+        member this.GetEnumerator() = this |> Hamt.toSeq |> Enumerable.enumerator
 
     //interface IReadOnlyDictionary<'K, 'V> with
     //    member this.ContainsKey key = Hamt.containsKey key this

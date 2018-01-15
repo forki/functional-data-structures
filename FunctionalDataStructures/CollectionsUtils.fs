@@ -4,4 +4,4 @@ open System.Collections.Generic
 
 module Enumerable =
     
-    let enumerator (enumerable: IEnumerable<'T>) = enumerable.GetEnumerator ()
+    let inline enumerator (enumerable: IEnumerable<'T>) = enumerable.GetEnumerator ()

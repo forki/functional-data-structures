@@ -1,5 +1,7 @@
 ﻿namespace rec CollectionsA
 
+open System.Collections.Generic
+
 type private Node<'T> =
     | Leaf of 'T
     | Branch of 'T * 'T Node * 'T Node
@@ -103,7 +105,20 @@ module private NodeList =
         | Root (_, node)::rest -> seq { yield! Node.toSeq node; yield! toSeq rest }
         
 
-type SkewListVector<'T> = private SkewList of int * 'T Root list
+type SkewListVector<'T> = private SkewList of int * 'T Root list with
+
+    interface IEnumerable<'T> with
+        member this.GetEnumerator() = this |> SkewList.toSeq |> Enumerable.enumerator
+        member this.GetEnumerator(): System.Collections.IEnumerator = 
+            upcast (this |> SkewList.toSeq |> Enumerable.enumerator)
+
+    member this.AsVector () = {
+        new IEnumerable<'T> with
+            member __.GetEnumerator(): IEnumerator<'T> = this |> SkewVector.toSeq |> Enumerable.enumerator
+            member __.GetEnumerator(): System.Collections.IEnumerator = 
+                upcast (this |> SkewVector.toSeq |> Enumerable.enumerator)  }
+        
+
 
 module SkewList =
 
@@ -179,6 +194,11 @@ module SkewList =
     let toSeq (SkewList (_, roots)) = NodeList.toSeq roots
 
     let ofSeq items = Seq.fold (fun list item -> cons item list) empty items
+
+    let (|Cons|EmptyList|) list =
+        match trySnoc list with
+        | Some pair -> Cons pair
+        | None -> EmptyList
 
 module private NodeAsVector =
 
@@ -262,3 +282,8 @@ module SkewVector =
     let inline toSeq (SkewList (_, roots)) = NodeListAsVector.toSeq roots
 
     let inline ofSeq items = SkewList.ofSeq items
+
+    let (|Conj|EmptyVector|) list =
+        match tryJnoc list with
+        | Some pair -> Conj pair
+        | None -> EmptyVector
