@@ -31,15 +31,15 @@ type KeyHash = KeyHash of int with
 
 [<EntryPoint>]
 let main argv = 
-    let n = 4000000
+    let n = 10000000
     let items = Seq.init n id
 
     let m = GC.GetTotalMemory true
     let k = System.Diagnostics.Stopwatch.StartNew()
 
-    //let h0 = 
-    //    items
-    //    |> Seq.fold (fun hamt item -> Hamt.add (KeyHash item) item hamt) Hamt.empty
+    let h0 = 
+        items
+        |> Seq.fold (fun hamt item -> Hamt.add (KeyHash item) item hamt) Hamt.empty
 
     //let p0 =
     //    items
@@ -49,17 +49,17 @@ let main argv =
     //    items
     //    |> Seq.fold (fun map item -> Map.add (KeyHash item) item map) Map.empty
 
-    let d0 =
-        items
-        |> Seq.fold (fun (map: Dictionary<KeyHash, int>) item -> map.Add (KeyHash item, item); map ) (new Dictionary<KeyHash, int>())
+    //let d0 =
+    //    items
+    //    |> Seq.fold (fun (map: Dictionary<KeyHash, int>) item -> map.Add (KeyHash item, item); map ) (new Dictionary<KeyHash, int>())
 
     
     let elapsed = k.ElapsedMilliseconds
     let memory = float (GC.GetTotalMemory true - m) / 1024.0 / 1024.0
 
-    //printfn "%A Time: %A ms Memory: %A MB" (Hamt.count h0) elapsed memory
+    printfn "%A Time: %A ms Memory: %A MB" (Hamt.count h0) elapsed memory
     //printfn "%A Time: %A ms Memory: %A MB" p0.Length elapsed memory
     //printfn "%A Time: %A ms Memory: %A MB" m0.Count elapsed memory
-    printfn "%A Time: %A ms Memory: %A MB" d0.Count elapsed memory
+    //printfn "%A Time: %A ms Memory: %A MB" d0.Count elapsed memory
 
     0 // return an integer exit code1

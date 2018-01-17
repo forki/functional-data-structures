@@ -1,4 +1,4 @@
-﻿namespace rec CollectionsA
+﻿namespace rec CollectionsC
 
 open System.Collections.Generic
 
@@ -130,15 +130,15 @@ module private NodeList =
 type SkewListVector<'T> = private SkewListVector of int * 'T Root list with
 
     interface IEnumerable<'T> with
-        member this.GetEnumerator() = this |> SkewList.toSeq |> Enumerable.enumerator
+        member this.GetEnumerator() = this |> SkewList.toSeq |> CollectionsA.Enumerable.enumerator
         member this.GetEnumerator(): System.Collections.IEnumerator = 
-            upcast (this |> SkewList.toSeq |> Enumerable.enumerator)
+            upcast (this |> SkewList.toSeq |> CollectionsA.Enumerable.enumerator)
 
     member this.AsVector () = {
         new IEnumerable<'T> with
-            member __.GetEnumerator(): IEnumerator<'T> = this |> SkewVector.toSeq |> Enumerable.enumerator
+            member __.GetEnumerator(): IEnumerator<'T> = this |> SkewVector.toSeq |> CollectionsA.Enumerable.enumerator
             member __.GetEnumerator(): System.Collections.IEnumerator = 
-                upcast (this |> SkewVector.toSeq |> Enumerable.enumerator)  }
+                upcast (this |> SkewVector.toSeq |> CollectionsA.Enumerable.enumerator)  }
 
 exception EmptySkewCollection
 
@@ -156,9 +156,9 @@ module private SkewListProxy =
 
     let inline count (SkewListVector (count, _)) = count
 
-    let singleton item = SkewListVector (1, [ Root (1, Leaf item) ]) 
+    let inline singleton item = SkewListVector (1, [ Root (1, Leaf item) ]) 
     
-    let cons x (SkewListVector (count, roots)) = SkewListVector (count + 1, NodeList.cons x roots)
+    let inline cons x (SkewListVector (count, roots)) = SkewListVector (count + 1, NodeList.cons x roots)
 
     let snoc (SkewListVector (count, roots)) = 
         match roots with
@@ -202,88 +202,93 @@ module private SkewListProxy =
         | [] ->
             None
 
-    let item index (SkewListVector (_, roots)) = NodeList.item index roots
+    let inline item index (SkewListVector (_, roots)) = NodeList.item index roots
 
-    let update index value (SkewListVector (count, roots)) =
+    let inline update index value (SkewListVector (count, roots)) =
         SkewListVector (count, NodeList.update value index [] roots)
 
-    let skip skipCount (SkewListVector (count, roots)) =
+    let inline skip skipCount (SkewListVector (count, roots)) =
         SkewListVector (count - skipCount, NodeList.skip skipCount roots)
 
-    let take takeCount (SkewListVector (count, roots)) =
+    let inline take takeCount (SkewListVector (count, roots)) =
         SkewListVector (takeCount, NodeList.skipAndFoldBack (count - takeCount) roots NodeList.cons [])
+
+    let inline append (SkewListVector (count1, roots1)) (SkewListVector (count2, roots2)) =
+        SkewListVector (count1 + count2, NodeList.foldBack roots1 NodeList.cons roots2)
 
 module SkewList =
 
     let empty: SkewListVector<'T> = SkewListProxy.empty
 
-    let inline isEmpty list = SkewListProxy.isEmpty list
+    let isEmpty list = SkewListProxy.isEmpty list
 
-    let inline count list = SkewListProxy.count list
+    let count list = SkewListProxy.count list
 
-    let inline singleton item = SkewListProxy.singleton item
+    let singleton item = SkewListProxy.singleton item
     
-    let inline cons x list = SkewListProxy.cons x list
+    let cons x list = SkewListProxy.cons x list
 
-    let inline uncons list = SkewListProxy.snoc list
+    let uncons list = SkewListProxy.snoc list
 
-    let inline snoc list = SkewListProxy.snoc list
+    let snoc list = SkewListProxy.snoc list
 
-    let inline head list = SkewListProxy.head list
+    let head list = SkewListProxy.head list
 
-    let inline tail list = SkewListProxy.tail list
+    let tail list = SkewListProxy.tail list
 
-    let inline item index list =
+    let item index list =
         if index >= 0 && index < SkewListProxy.count list
             then SkewListProxy.item index list
             else raise (IndexOutOfBounds (index, 0, SkewListProxy.count list - 1))
 
-    let inline update index value list =
+    let update index value list =
         if index >= 0 && index < SkewListProxy.count list
             then SkewListProxy.update index value list
             else raise (IndexOutOfBounds (index, 0, SkewListProxy.count list - 1))
 
-    let inline skip skipCount list =
+    let skip skipCount list =
         if skipCount >= 0 && skipCount <= SkewListProxy.count list
             then SkewListProxy.skip skipCount list
             else raise (SkipOutOfBounds (skipCount, SkewListProxy.count list))
 
-    let inline take takeCount list =
+    let take takeCount list =
         if takeCount >= 0 && takeCount <= SkewListProxy.count list
             then SkewListProxy.take takeCount list
             else raise (TakeOutOfBounds (takeCount, SkewListProxy.count list))
 
-    let inline trySnoc list = SkewListProxy.trySnoc list
+    let trySnoc list = SkewListProxy.trySnoc list
 
-    let inline tryUncons list = trySnoc list
+    let tryUncons list = trySnoc list
 
-    let inline tryHead list =
+    let tryHead list =
         SkewListProxy.tryHead list
 
-    let inline tryTail list =
+    let tryTail list =
         SkewListProxy.tryTail list
 
-    let inline tryItem index list =
+    let tryItem index list =
         if index >= 0 && index < SkewListProxy.count list
             then Some (SkewListProxy.item index list)
             else None
 
-    let inline tryUpdate index value list =
+    let tryUpdate index value list =
         if index >= 0 && index < SkewListProxy.count list
             then Some (SkewListProxy.update index value list)
             else None
 
-    let inline trySkip skipCount list =
+    let trySkip skipCount list =
         if skipCount >= 0 && skipCount <= SkewListProxy.count list
             then Some (SkewListProxy.skip skipCount list)
             else None
 
-    let inline tryTake takeCount list =
+    let tryTake takeCount list =
         if takeCount >= 0 && takeCount <= SkewListProxy.count list
             then Some (SkewListProxy.take takeCount list)
             else None
 
-    let inline toSeq (SkewListVector (_, roots)) = NodeList.toSeq roots
+    let append list1 list2 = SkewListProxy.append list1 list2
+
+    let toSeq (SkewListVector (_, roots)) = NodeList.toSeq roots
 
     let ofSeq items = 
         items
@@ -317,75 +322,77 @@ module SkewVector =
 
     let empty: SkewListVector<'T> = SkewListProxy.empty
 
-    let inline isEmpty list = SkewListProxy.isEmpty list
+    let isEmpty list = SkewListProxy.isEmpty list
 
-    let inline count list = SkewListProxy.count list
+    let count list = SkewListProxy.count list
 
-    let inline singleton item = SkewListProxy.singleton item
+    let singleton item = SkewListProxy.singleton item
     
-    let inline conj x list = SkewListProxy.cons x list
+    let conj x list = SkewListProxy.cons x list
 
-    let inline unconj list = SkewListProxy.snoc list
+    let unconj list = SkewListProxy.snoc list
 
-    let inline jnoc list = SkewListProxy.snoc list
+    let jnoc list = SkewListProxy.snoc list
 
-    let inline last list = SkewListProxy.head list
+    let last list = SkewListProxy.head list
 
-    let inline initial list = SkewListProxy.tail list
+    let initial list = SkewListProxy.tail list
 
-    let inline item index list =
+    let item index list =
         if index >= 0 && index < SkewListProxy.count list
             then SkewListProxy.item (SkewListProxy.count list - index - 1) list
             else raise (IndexOutOfBounds (index, 0, SkewListProxy.count list - 1))
 
-    let inline update index value list =
+    let update index value list =
         if index >= 0 && index < SkewListProxy.count list
             then SkewListProxy.update (SkewListProxy.count list - index - 1) value list
             else raise (IndexOutOfBounds (index, 0, SkewListProxy.count list - 1))
 
-    let inline skip skipCount list =
+    let skip skipCount list =
         if skipCount >= 0 && skipCount <= SkewListProxy.count list
             then SkewListProxy.take (SkewListProxy.count list - skipCount) list
             else raise (SkipOutOfBounds (skipCount, SkewListProxy.count list))
 
-    let inline take takeCount list =
+    let take takeCount list =
         if takeCount >= 0 && takeCount <= SkewListProxy.count list
             then SkewListProxy.skip (SkewListProxy.count list - takeCount) list
             else raise (TakeOutOfBounds (takeCount, SkewListProxy.count list))
 
-    let inline tryJnoc list = SkewListProxy.trySnoc list
+    let tryJnoc list = SkewListProxy.trySnoc list
 
-    let inline tryUnconj list = tryJnoc list
+    let tryUnconj list = tryJnoc list
 
-    let inline tryHead list =
+    let tryHead list =
         SkewListProxy.tryHead list
 
-    let inline tryTail list =
+    let tryTail list =
         SkewListProxy.tryTail list
 
-    let inline tryItem index list =
+    let tryItem index list =
         if index >= 0 && index < SkewListProxy.count list
             then Some (SkewListProxy.item index list)
             else None
 
-    let inline tryUpdate index value list =
+    let tryUpdate index value list =
         if index >= 0 && index < SkewListProxy.count list
             then Some (SkewListProxy.update index value list)
             else None
 
-    let inline trySkip skipCount list =
+    let trySkip skipCount list =
         if skipCount >= 0 && skipCount <= SkewListProxy.count list
             then Some (SkewListProxy.take (SkewListProxy.count list - skipCount) list)
             else None
 
-    let inline tryTake takeCount list =
+    let tryTake takeCount list =
         if takeCount >= 0 && takeCount <= SkewListProxy.count list
             then Some (SkewListProxy.skip (SkewListProxy.count list - takeCount) list)
             else None
 
-    let inline toSeq (SkewListVector (_, roots)) = NodeListAsVector.toSeq roots
+    let append vector1 vector2 = SkewListProxy.append vector2 vector1
 
-    let inline ofSeq items = SkewList.ofSeq items
+    let toSeq (SkewListVector (_, roots)) = NodeListAsVector.toSeq roots
+
+    let ofSeq items = SkewList.ofSeq items
 
     let (|Conj|EmptyVector|) vector =
         if isEmpty vector
