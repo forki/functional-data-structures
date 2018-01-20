@@ -83,7 +83,7 @@ module private Node =
     open Bitmap
     open FDS.Core.Collections
 
-    let inline childBitIndex prefix = (prefixBits prefix) &&& BitIndexMask<BitmapHolder> () |> asBits
+    let inline childBitIndex prefix = (prefixBits prefix) &&& bitIndexMask<BitmapHolder> () |> asBits
 
     let inline containsChild childBitIndex bitmap = Bitmap.isBitOn childBitIndex bitmap
 
@@ -94,7 +94,7 @@ module private Node =
         |> int
 
     let inline nextLayerPrefix (Prefix (bits, length)) =
-        let shift = min length (BitIndexBits<BitmapHolder> ())
+        let shift = min length (bitIndexBits<BitmapHolder> ())
         Prefix (rshift bits shift, length - shift)
 
     let rec add entry entryHash prefix node =

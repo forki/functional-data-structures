@@ -20,29 +20,29 @@ module Bitmap =
 
     let inline private unequal ((Bitmap a): Bitmap<'T>) ((Bitmap b): Bitmap<'T>) = underlying a <> underlying b
 
-    let inline NoBit< ^T when ^T: (static member NoBit: unit -> ^T)> () =
+    let inline noBit< ^T when ^T: (static member NoBit: unit -> ^T)> () =
         Bitmap ((^T): (static member NoBit: unit -> 'T) ())
 
-    let inline FirstBit< ^T when ^T: (static member FirstBit: unit -> ^T)> () =
+    let inline firstBit< ^T when ^T: (static member FirstBit: unit -> ^T)> () =
         Bitmap ((^T): (static member FirstBit: unit -> 'T) ())
 
-    let inline AllBits< ^T when ^T: (static member FirstBit: unit -> ^T)> () =
+    let inline allBits< ^T when ^T: (static member FirstBit: unit -> ^T)> () =
         Bitmap ((^T): (static member FirstBit: unit -> 'T) ())
 
-    let inline BitIndexBits< ^T when ^T: (static member BitIndexBits: unit -> int<bit>)> () =
+    let inline bitIndexBits< ^T when ^T: (static member BitIndexBits: unit -> int<bit>)> () =
         ((^T): (static member BitIndexBits: unit -> int<bit>) ())
 
-    let inline BitIndexMask< ^T when ^T: (static member BitIndexMask: unit -> uint32)> () =
+    let inline bitIndexMask< ^T when ^T: (static member BitIndexMask: unit -> uint32)> () =
         ((^T): (static member BitIndexMask: unit -> uint32) ())
 
     let inline countBitsOn< ^T when ^T: (static member CountBitsOn: 'T -> int<bit>)> (Bitmap actualBits) =
         ((^T): (static member CountBitsOn: 'T -> int<bit>) (actualBits))
 
-    let inline bit index = lshift (FirstBit ()) index
+    let inline bit index = lshift (firstBit ()) index
 
-    let inline isBitOn index bitmap = unequal (bit index &&& bitmap) (NoBit ())
+    let inline isBitOn index bitmap = unequal (bit index &&& bitmap) (noBit ())
 
-    let inline onlyLowerBits index bitmap = (bit index - FirstBit ()) &&& bitmap
+    let inline onlyLowerBits index bitmap = (bit index - firstBit ()) &&& bitmap
 
     let inline setBit index bitmap = bitmap ||| (bit index)
 
