@@ -16,21 +16,18 @@ module private Node =
     let rec item index count = function
         | Leaf x when index = 0 -> x
         | Leaf _ -> raise (InvalidOperation "Not enough elements")
-        | Branch (x, _, _) when index = 0 -> x
-        | Branch (_, left, _) when index <= count / 2 ->
-            item (index - 1) (count / 2) left
-        | Branch (_, _, right) ->
-            item (index - 1 - count / 2) (count / 2) right
+        | Branch (x, _, _)     when index = 0          -> x
+        | Branch (_, left, _)  when index <= count / 2 -> item (index - 1) (count / 2) left
+        | Branch (_, _, right)                         -> item (index - 1 - count / 2) (count / 2) right
     
     let rec update value index count = function
         | Leaf _ when index = 0 -> Leaf value
         | Leaf _ -> raise (InvalidOperation "Not enough elements")
         | Branch (_, left, right) when index = 0 -> Branch (value, left, right)
         | Branch (x, left, right) ->
-            if index <= count / 2 then
-                Branch (x, update value (index - 1) (count / 2) left, right)
-            else
-                Branch (x, left, update value (index - 1 - count /2) (count / 2) right)
+            if index <= count / 2 
+                then Branch (x, update value (index - 1) (count / 2) left, right)
+                else Branch (x, left, update value (index - 1 - count /2) (count / 2) right)
 
     let rec toSeq node = 
         seq {
@@ -67,11 +64,9 @@ module private NodeList =
         | Root (count, _)::rest -> item (index - count) rest
         | [] -> raise (InvalidOperation "Not enough elements")
 
-    let rec update value index prev = function
-        | Root (count, node)::rest when index < count ->
-            Root (count, Node.update value index count node)::rest
-            |> addAllFrom prev
-        | (Root (count, _) as x)::rest -> update value (index - count) (x::prev) rest
+    let rec update value index = function
+        | Root (count, node)::rest when index < count -> Root (count, Node.update value index count node)::rest
+        | (Root (count, _) as x)::rest -> x::(update value (index - count) rest)
         | [] -> raise (InvalidOperation "Not enough elements")
 
     let rec skip skipCount = function
@@ -205,7 +200,7 @@ module private SkewListProxy =
     let inline item index (SkewListVector (_, roots)) = NodeList.item index roots
 
     let inline update index value (SkewListVector (count, roots)) =
-        SkewListVector (count, NodeList.update value index [] roots)
+        SkewListVector (count, NodeList.update value index roots)
 
     let inline skip skipCount (SkewListVector (count, roots)) =
         SkewListVector (count - skipCount, NodeList.skip skipCount roots)
@@ -290,7 +285,7 @@ module SkewList =
 
     let toSeq (SkewListVector (_, roots)) = NodeList.toSeq roots
 
-    let ofSeq items = 
+    let ofSeq (items: #seq<'T>) = 
         items
         |> Seq.rev
         |> Seq.fold (fun list item -> cons item list) empty
@@ -392,7 +387,9 @@ module SkewVector =
 
     let toSeq (SkewListVector (_, roots)) = NodeListAsVector.toSeq roots
 
-    let ofSeq items = SkewList.ofSeq items
+    let ofSeq (items: #seq<'T>) = 
+        let roots = Seq.fold (fun roots item -> NodeList.cons item roots) [] items
+        SkewListVector (List.sumBy (fun (Root (count, _)) -> count) roots, roots)
 
     let (|Conj|EmptyVector|) vector =
         if isEmpty vector

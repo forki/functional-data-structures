@@ -10,7 +10,7 @@ open System.Collections.Generic
 
 [<CustomEquality; CustomComparison>]
 type KeyHash = KeyHash of int with
-    override this.GetHashCode () = match this with KeyHash value -> value / 30
+    override this.GetHashCode () = match this with KeyHash value -> value / 2
 
     interface IEquatable<KeyHash> with
         member this.Equals other = match this, other with KeyHash v1, KeyHash v2 -> v1 = v2
@@ -31,7 +31,8 @@ type KeyHash = KeyHash of int with
 
 [<EntryPoint>]
 let main argv = 
-    let n = 10000000
+
+    let n = 5000000
     let items = Seq.init n id
 
     let m = GC.GetTotalMemory true

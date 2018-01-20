@@ -8,6 +8,7 @@ let countBitsOn32 value =
     asBits (rshift (((b + (rshift b 4<bit>)) &&& 0x0F0F0F0Fu) * 0x01010101u) 24<bit>)
 
 let countBitsOn64 (value: uint64) =
-    let low = value |> uint32 |> countBitsOn32
-    let high = rshift value 32<bit> |> uint32 |> countBitsOn32
-    low + high
+    let a = value - ((rshift value 1<bit>) &&& 0x5555555555555555UL)
+    let b = (a &&& 0x3333333333333333UL) + ((rshift a 2<bit>) &&& 0x3333333333333333UL)
+    let c = (b + (rshift b 4<bit>)) &&& 0x0F0F0F0F0F0F0F0FUL
+    asBits (rshift (c * 0x0101010101010101UL) 56<bit>)

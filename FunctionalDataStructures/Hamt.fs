@@ -4,13 +4,19 @@ open System.Collections.Generic
 open FDS.Core
 open FDS.Core.Units
 
+#if X64
+type BitmapHolder = UInt64W
+#else
+type BitmapHolder = UInt32W
+#endif
+
 [<Struct>]
 type Entry<'K, 'T> = Entry of key:'K * value:'T
 
 type private Node<'K, 'T> =
     | Leaf of Entry<'K, 'T>
     | LeafWithCollisions of Entry<'K, 'T> list
-    | Branch of Bitmap * Node<'K, 'T> array
+    | Branch of Bitmap<BitmapHolder> * Node<'K, 'T> array
 
 [<Struct>]
 type private Prefix = Prefix of bits: uint32 * length: int<bit>
@@ -77,9 +83,7 @@ module private Node =
     open Bitmap
     open FDS.Core.Collections
 
-    let emptyBranch: Node<'K, 'T> = Branch (NoneSet, Array.empty)
-
-    let inline childBitIndex prefix = (prefixBits prefix) &&& Bitmap.PrefixLayerMask |> asBits
+    let inline childBitIndex prefix = (prefixBits prefix) &&& BitIndexMask<BitmapHolder> () |> asBits
 
     let inline containsChild childBitIndex bitmap = Bitmap.isBitOn childBitIndex bitmap
 
@@ -90,7 +94,7 @@ module private Node =
         |> int
 
     let inline nextLayerPrefix (Prefix (bits, length)) =
-        let shift = min length Bitmap.LayerBitCount
+        let shift = min length (BitIndexBits<BitmapHolder> ())
         Prefix (rshift bits shift, length - shift)
 
     let rec add entry entryHash prefix node =
@@ -103,9 +107,7 @@ module private Node =
                 LeafWithCollisions [ entry; oldEntry ], AddOutcome.Added
             else
                 let oldPrefix = currentLevelPrefixFromHash (length prefix) oldHash
-                emptyBranch
-                |> add oldEntry oldHash oldPrefix
-                |> fst
+                Branch (Bitmap.bit (childBitIndex oldPrefix), [| node |])
                 |> add entry entryHash prefix
         | LeafWithCollisions entries ->
             let collisionHash = collisionHash entries
@@ -113,7 +115,7 @@ module private Node =
                 let (newEntries, outcome) = insertOrReplace entry entries
                 LeafWithCollisions newEntries, outcome
             else
-                let collisionPrefix = currentLevelPrefixFromHash (length prefix) collisionHash //aqui
+                let collisionPrefix = currentLevelPrefixFromHash (length prefix) collisionHash
                 let collisionBitIndex = childBitIndex collisionPrefix
                 Branch (Bitmap.bit collisionBitIndex, [| node |])
                 |> add entry entryHash prefix
