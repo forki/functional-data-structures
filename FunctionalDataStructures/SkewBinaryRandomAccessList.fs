@@ -155,7 +155,7 @@ module private SkewListProxy =
     
     let inline cons x (SkewListVector (count, roots)) = SkewListVector (count + 1, NodeList.cons x roots)
 
-    let snoc (SkewListVector (count, roots)) = 
+    let uncons (SkewListVector (count, roots)) = 
         match roots with
         | Root (_, Leaf x)::tail -> x, SkewListVector (count - 1, tail)
         | Root (w, Branch (x, t1, t2))::rest -> x, SkewListVector (count - 1, Root (w / 2, t1)::Root (w / 2, t2)::rest)
@@ -173,7 +173,7 @@ module private SkewListProxy =
         | Root (w, Branch (_, t1, t2))::rest -> SkewListVector (count - 1, (Root (w / 2, t1)::Root (w / 2, t2)::rest))
         | [] -> raise EmptySkewCollection
 
-    let trySnoc (SkewListVector (count, roots)) = 
+    let tryUncons (SkewListVector (count, roots)) = 
         match roots with
         | Root (_, Leaf x)::tail -> 
             Some (x, SkewListVector (count - 1, tail))
@@ -223,9 +223,7 @@ module SkewList =
     
     let cons x list = SkewListProxy.cons x list
 
-    let uncons list = SkewListProxy.snoc list
-
-    let snoc list = SkewListProxy.snoc list
+    let uncons list = SkewListProxy.uncons list
 
     let head list = SkewListProxy.head list
 
@@ -251,9 +249,7 @@ module SkewList =
             then SkewListProxy.take takeCount list
             else raise (TakeOutOfBounds (takeCount, SkewListProxy.count list))
 
-    let trySnoc list = SkewListProxy.trySnoc list
-
-    let tryUncons list = trySnoc list
+    let tryUncons list = SkewListProxy.tryUncons list
 
     let tryHead list =
         SkewListProxy.tryHead list
@@ -293,7 +289,7 @@ module SkewList =
     let (|Cons|EmptyList|) list =
         if isEmpty list 
             then EmptyList
-            else Cons (snoc list)
+            else Cons (uncons list)
 
 module private NodeAsVector =
 
@@ -323,11 +319,9 @@ module SkewVector =
 
     let singleton item = SkewListProxy.singleton item
     
-    let conj x list = SkewListProxy.cons x list
+    let snoc x list = SkewListProxy.cons x list
 
-    let unconj list = SkewListProxy.snoc list
-
-    let jnoc list = SkewListProxy.snoc list
+    let unsnoc list = SkewListProxy.uncons list
 
     let last list = SkewListProxy.head list
 
@@ -353,9 +347,7 @@ module SkewVector =
             then SkewListProxy.skip (SkewListProxy.count list - takeCount) list
             else raise (TakeOutOfBounds (takeCount, SkewListProxy.count list))
 
-    let tryJnoc list = SkewListProxy.trySnoc list
-
-    let tryUnconj list = tryJnoc list
+    let tryUnsnoc list = SkewListProxy.tryUncons list
 
     let tryHead list =
         SkewListProxy.tryHead list
@@ -391,7 +383,7 @@ module SkewVector =
         let roots = Seq.fold (fun roots item -> NodeList.cons item roots) [] items
         SkewListVector (List.sumBy (fun (Root (count, _)) -> count) roots, roots)
 
-    let (|Conj|EmptyVector|) vector =
+    let (|Snoc|EmptyVector|) vector =
         if isEmpty vector
             then EmptyVector
-            else Conj (jnoc vector)
+            else Snoc (unsnoc vector)
