@@ -113,6 +113,10 @@
     <Compile Include="ArithmeticHelpers.fs" />
     <Compile Include="Bitmap.fs" />
     <Compile Include="SkewBinaryRandomAccessList.fs" />
+    <Compile Include="Stream.fs" />
+    <Compile Include="Queue.fs" />
+    <Compile Include="RealTimeQueue.fs" />
+    <Compile Include="SkewBinomialHeap.fs" />
     <Compile Include="Hamt.fs" />
     <Compile Include="Program.fs" />
     <None Include="App.config" />

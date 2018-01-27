@@ -15,28 +15,28 @@ module Bitmap =
     let inline private (-) ((Bitmap minuend): Bitmap<'T>) ((Bitmap subtrahend): Bitmap<'T>): Bitmap<'T> = 
         Bitmap (minuend - subtrahend)
 
-    let inline underlying< ^T, 'A when ^T: (static member Underlying: 'T -> 'A)> (v: 'T) =
-        ((^T): (static member Underlying: 'T -> 'A) (v))
+    let inline underlying< ^T, ^A when ^T: (static member Underlying: 'T -> 'A)> (v: 'T) =
+        (^T: (static member Underlying: 'T -> 'A) (v))
 
     let inline private unequal ((Bitmap a): Bitmap<'T>) ((Bitmap b): Bitmap<'T>) = underlying a <> underlying b
 
     let inline noBit< ^T when ^T: (static member NoBit: unit -> ^T)> () =
-        Bitmap ((^T): (static member NoBit: unit -> 'T) ())
+        Bitmap (^T: (static member NoBit: unit -> 'T) ())
 
     let inline firstBit< ^T when ^T: (static member FirstBit: unit -> ^T)> () =
-        Bitmap ((^T): (static member FirstBit: unit -> 'T) ())
+        Bitmap (^T: (static member FirstBit: unit -> 'T) ())
 
     let inline allBits< ^T when ^T: (static member FirstBit: unit -> ^T)> () =
-        Bitmap ((^T): (static member FirstBit: unit -> 'T) ())
+        Bitmap (^T: (static member FirstBit: unit -> 'T) ())
 
     let inline bitIndexBits< ^T when ^T: (static member BitIndexBits: unit -> int<bit>)> () =
-        ((^T): (static member BitIndexBits: unit -> int<bit>) ())
+        (^T: (static member BitIndexBits: unit -> int<bit>) ())
 
     let inline bitIndexMask< ^T when ^T: (static member BitIndexMask: unit -> uint32)> () =
-        ((^T): (static member BitIndexMask: unit -> uint32) ())
+        (^T: (static member BitIndexMask: unit -> uint32) ())
 
     let inline countBitsOn< ^T when ^T: (static member CountBitsOn: 'T -> int<bit>)> (Bitmap actualBits) =
-        ((^T): (static member CountBitsOn: 'T -> int<bit>) (actualBits))
+        (^T: (static member CountBitsOn: 'T -> int<bit>) actualBits)
 
     let inline bit index = lshift (firstBit ()) index
 
